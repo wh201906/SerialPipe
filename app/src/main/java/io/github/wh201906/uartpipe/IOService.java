@@ -3,6 +3,7 @@ package io.github.wh201906.uartpipe;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +12,7 @@ import android.hardware.usb.UsbManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Process;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -23,10 +25,14 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Arrays;
 
 public class IOService extends Service
 {
     private static final String TAG = "IOService";
+
+    private static final int WRITE_WAIT_MILLIS = 2000;
+    private static final int READ_WAIT_MILLIS = 2000;
 
     private final IBinder binder = new LocalBinder();
     private Notification notification;
@@ -35,12 +41,16 @@ public class IOService extends Service
     private int outboundPort = 0;
     private InetAddress outboundAddress = null;
     private DatagramSocket udpSocket = null;
+    byte[] udpReceiveBuf = new byte[4096];
+    DatagramPacket udpReceivePacket = new DatagramPacket(udpReceiveBuf, udpReceiveBuf.length);
 
     private int baudrate = 115200;
     private UsbSerialDriver uartUsbDriver = null;
     private UsbSerialPort uartUsbPort = null;
+    byte[] uartReceiveBuf = new byte[4096];
 
     private boolean isSocketConnected = false;
+    private boolean isUartConnected = false;
     private boolean isTrafficLoggingEnabled = false;
 
     @Override
@@ -75,31 +85,27 @@ public class IOService extends Service
         }
         isSocketConnected = true;
 
-        new Thread(new Runnable()
+        new Thread(() ->
         {
-            @Override
-            public void run()
+//            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            try
             {
-                try
+                while (isSocketConnected)
                 {
-                    while (isSocketConnected)
-                    {
-                        byte[] receiveData = new byte[1024];
-                        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                        udpSocket.receive(receivePacket);
+                    udpSocket.receive(udpReceivePacket);
+                    outboundAddress = udpReceivePacket.getAddress();
+                    outboundPort = udpReceivePacket.getPort();
+                    byte[] receivedData = Arrays.copyOf(udpReceiveBuf, udpReceivePacket.getLength());
+                    if (isTrafficLoggingEnabled)
+                        Log.w(TAG, "From UDP: " + new String(receivedData , "UTF-8"));
 
-                        if (isTrafficLoggingEnabled)
-                            Log.w(TAG, "From UDP: " + new String(receivePacket.getData(), "UTF-8"));
-
-                        DatagramPacket sendPacket = new DatagramPacket(receivePacket.getData(), receivePacket.getLength(), receivePacket.getAddress(), receivePacket.getPort());
-
-                        udpSocket.send(sendPacket);
-                    }
-                } catch (Exception e)
-                {
-                    e.printStackTrace();
-                    stopUdpSocket();
+                    if(isUartConnected)
+                        uartUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
                 }
+            } catch (Exception e)
+            {
+                e.printStackTrace();
+                stopUdpSocket();
             }
         }).start();
 
@@ -160,7 +166,51 @@ public class IOService extends Service
             e.printStackTrace();
             return false;
         }
+        new Thread(() ->
+        {
+//            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            try
+            {
+                while (isUartConnected)
+                {
+                    int receiveLen = uartUsbPort.read(uartReceiveBuf, READ_WAIT_MILLIS);
+                    Log.w(TAG, "UART->UDP:recvLen" + receiveLen);
+                    if (receiveLen == 0)
+                        continue;
+
+                    if (isTrafficLoggingEnabled)
+                        Log.w(TAG, "From UDP: " + new String(Arrays.copyOf(uartReceiveBuf, receiveLen) , "UTF-8"));
+
+                    if(isSocketConnected)
+                    {
+                        DatagramPacket sendPacket = new DatagramPacket(uartReceiveBuf, receiveLen, outboundAddress, outboundPort);
+                        udpSocket.send(sendPacket);
+                    }
+                }
+            } catch (Exception e)
+            {
+                e.printStackTrace();
+                stopUdpSocket();
+            }
+        }).start();
+        isUartConnected = true;
         return true;
+    }
+
+    public void disconnectFromUart()
+    {
+        if(uartUsbPort != null)
+        {
+            try
+            {
+                uartUsbPort.close();
+            } catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+            uartUsbPort = null;
+        }
+        isUartConnected = false;
     }
 
     public class LocalBinder extends Binder
@@ -174,7 +224,13 @@ public class IOService extends Service
     private Notification createNotification()
     {
         String appName = getString(R.string.app_name);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName).setContentTitle(appName).setContentText(appName).setSmallIcon(R.mipmap.ic_launcher);
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName)
+                .setContentTitle(appName)
+                .setContentText(appName)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         {
             NotificationChannel channel = new NotificationChannel(appName, appName, NotificationManager.IMPORTANCE_DEFAULT);
