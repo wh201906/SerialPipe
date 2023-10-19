@@ -1,57 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_height="match_parent"
     android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp">
 
     <LinearLayout
-        android:layout_height="wrap_content"
         android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal">
 
         <TextView
-            android:gravity="center"
             android:id="@+id/textView"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:layout_width="wrap_content"
+            android:gravity="center"
             android:text="Port:"
             android:textSize="18sp" />
 
         <EditText
-            android:ems="10"
             android:id="@+id/portEditText"
-            android:inputType="number"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_width="wrap_content"
+            android:ems="10"
+            android:inputType="number"
             android:text="18888" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/startServerButton"
-        android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:text="Start Server" />
-
-    <Button
-        android:enabled="false"
-        android:id="@+id/stopServerButton"
-        android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:text="Stop Server" />
-
-    <TextView
-        android:id="@+id/statusTextView"
-        android:layout_height="wrap_content"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:text="Server Status: Stopped" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/startServerButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Start Server" />
+
+        <Button
+            android:id="@+id/stopServerButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:text="Stop Server" />
+
+        <TextView
+            android:id="@+id/statusTextView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Status: Stopped" />
+    </LinearLayout>
 
     <CheckBox
         android:id="@+id/loggingTrafficCheckBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Logging Traffic" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Baudrate:"
+            android:textSize="18sp" />
+
+        <EditText
+            android:id="@+id/baudrateEditText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ems="10"
+            android:inputType="number"
+            android:text="115200" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/connectUartButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connect" />
+
+    <EditText
+        android:id="@+id/editTextTextMultiLine"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:ems="10"
+        android:gravity="start|top"
+        android:inputType="textMultiLine" />
 </LinearLayout>
