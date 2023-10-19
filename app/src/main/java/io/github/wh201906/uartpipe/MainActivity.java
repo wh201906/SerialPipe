@@ -1,101 +1,110 @@
 package io.github.wh201906.uartpipe;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.IBinder;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.SocketException;
-import java.util.Arrays;
+import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity
 {
+    private IOService ioService = null;
+    private boolean isIoServiceBound = false;
+    private ServiceConnection ioServiceConn = new ServiceConnection()
+    {
+        @Override
+        public void onServiceConnected(ComponentName className, IBinder service)
+        {
+            IOService.LocalBinder binder = (IOService.LocalBinder) service;
+            ioService = binder.getService();
+            isIoServiceBound = true;
+        }
 
-    private DatagramSocket serverSocket;
-    private boolean isServerRunning = false;
-    private EditText portEditText; // 新增的输入框用于指定端口号
+        @Override
+        public void onServiceDisconnected(ComponentName componentName)
+        {
+            isIoServiceBound = false;
+        }
+    };
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         Button startServerButton = findViewById(R.id.startServerButton);
         Button stopServerButton = findViewById(R.id.stopServerButton);
         TextView statusTextView = findViewById(R.id.statusTextView);
-        portEditText = findViewById(R.id.portEditText); // 关联输入框
+        EditText inboundPortEdit = findViewById(R.id.portEditText);
+        CheckBox loggingTrafficCheckBox = findViewById(R.id.loggingTrafficCheckBox);
 
-        startServerButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startServerButton.setEnabled(false);
-                stopServerButton.setEnabled(true);
-                statusTextView.setText("Server Status: Running");
+        startServerButton.setOnClickListener(v ->
+        {
 
-                int port = Integer.parseInt(portEditText.getText().toString()); // 获取用户输入的端口号
-                try
+            if (isIoServiceBound)
+            {
+                ioService.setInboundPort(Integer.parseInt(inboundPortEdit.getText().toString()));
+                if (isIoServiceBound && ioService.startUdpSocket())
                 {
-                    startUDPServer(port);
-                } catch (SocketException e)
-                {
-                    throw new RuntimeException(e);
+                    statusTextView.setText("Server Status: Running");
+                    startServerButton.setEnabled(false);
+                    stopServerButton.setEnabled(true);
+                    inboundPortEdit.setEnabled(false);
                 }
             }
         });
 
-        stopServerButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        stopServerButton.setOnClickListener(v ->
+        {
+            if (isIoServiceBound)
+            {
+                ioService.stopUdpSocket();
                 stopServerButton.setEnabled(false);
                 startServerButton.setEnabled(true);
+                inboundPortEdit.setEnabled(true);
                 statusTextView.setText("Server Status: Stopped");
+            }
 
-                stopUDPServer();
+        });
+
+        loggingTrafficCheckBox.setOnClickListener(v ->
+        {
+            if (isIoServiceBound)
+            {
+                ioService.setTrafficLogging(((CheckBox)v).isChecked());
             }
         });
-    }
 
-    private void startUDPServer(final int port) throws SocketException
-    {
-        isServerRunning = true;
-        serverSocket = new DatagramSocket(port); // 使用用户指定的端口
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    while (isServerRunning) {
-                        byte[] receiveData = new byte[1024];
-                        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-                        serverSocket.receive(receivePacket);
-
-                        Log.w("UDP", new String(receivePacket.getData(), "UTF-8"));
-
-                        DatagramPacket sendPacket = new DatagramPacket(
-                                receivePacket.getData(),
-                                receivePacket.getLength(),
-                                receivePacket.getAddress(),
-                                receivePacket.getPort()
-                        );
-
-                        serverSocket.send(sendPacket);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-
-    private void stopUDPServer() {
-        if (serverSocket != null) {
-            serverSocket.close();
-            isServerRunning = false;
+        Intent serviceIntent = new Intent(this, IOService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        {
+            startForegroundService(serviceIntent);
         }
+        else
+        {
+            startService(serviceIntent);
+        }
+        if(bindService(serviceIntent, ioServiceConn, 0))
+            isIoServiceBound = true;
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        if (isIoServiceBound)
+        {
+            unbindService(ioServiceConn);
+            isIoServiceBound = false;
+        }
+        super.onDestroy();
     }
 }
