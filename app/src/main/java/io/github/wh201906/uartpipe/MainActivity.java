@@ -34,11 +34,12 @@ public class MainActivity extends AppCompatActivity
     private IOService ioService = null;
     private boolean isIoServiceBound = false;
 
+    private UsbSerialDriver pendingPermissionUsbDriver = null;
+
     EditText editTextTextMultiLine;
 
     private final BroadcastReceiver usbReceiver = new BroadcastReceiver()
     {
-
         public void onReceive(Context context, Intent intent)
         {
             String action = intent.getAction();
@@ -46,39 +47,20 @@ public class MainActivity extends AppCompatActivity
             {
                 synchronized (this)
                 {
-                    UsbDevice device = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false))
+                    UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+                    if (pendingPermissionUsbDriver != null && manager.hasPermission(pendingPermissionUsbDriver.getDevice()))
                     {
-                        if (device != null && isIoServiceBound)
-                        {
-                            // find the driver
-                            UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-                            List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-                            UsbSerialDriver driver = null;
-                            for (UsbSerialDriver drv : availableDrivers)
-                            {
-                                if (drv.getDevice().equals(device))
-                                {
-                                    driver = drv;
-                                    break;
-                                }
-                            }
-                            if (driver != null)
-                            {
-                                // found corresponding driver, connect
-                                ioService.setUartUsbDriver(driver);
-                                if (ioService.connectToUart())
-                                    Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
-                                else
-                                    Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
-                            }
-
-                        }
+                        ioService.setUartUsbDriver(pendingPermissionUsbDriver);
+                        if (ioService.connectToUart())
+                            Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
+                        else
+                            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
                     }
                     else
                     {
-                        Log.d(TAG, "Permission denied for device " + device);
+                        Log.d(TAG, "Permission denied for driver: " + pendingPermissionUsbDriver);
                     }
+                    pendingPermissionUsbDriver = null;
                 }
             }
         }
@@ -174,6 +156,7 @@ public class MainActivity extends AppCompatActivity
                 else
                 {
                     PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
+                    pendingPermissionUsbDriver = driver;
                     manager.requestPermission(device, permissionIntent);
                 }
             }
