@@ -12,7 +12,6 @@ import android.hardware.usb.UsbManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
-import android.os.Process;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -97,10 +96,9 @@ public class IOService extends Service
                     outboundPort = udpReceivePacket.getPort();
                     byte[] receivedData = Arrays.copyOf(udpReceiveBuf, udpReceivePacket.getLength());
                     if (isTrafficLoggingEnabled)
-                        Log.w(TAG, "From UDP: " + new String(receivedData , "UTF-8"));
+                        Log.w(TAG, "From UDP: " + new String(receivedData, "UTF-8"));
 
-                    if(isUartConnected)
-                        uartUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
+                    if (isUartConnected) uartUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
                 }
             } catch (Exception e)
             {
@@ -121,35 +119,21 @@ public class IOService extends Service
         }
     }
 
-    public void setInboundPort(int port)
-    {
-        inboundPort = port;
-    }
+    public void setInboundPort(int port) {inboundPort = port;}
 
-    public void setOutboundPort(int port)
-    {
-        outboundPort = port;
-    }
+    public void setOutboundPort(int port) {outboundPort = port;}
 
-    public void setOutboundAddress(InetAddress address)
-    {
-        outboundAddress = address;
-    }
+    public void setOutboundAddress(InetAddress address) {outboundAddress = address;}
 
-    public void setTrafficLogging(boolean enabled)
-    {
-        isTrafficLoggingEnabled = enabled;
-    }
+    public void setTrafficLogging(boolean enabled) {isTrafficLoggingEnabled = enabled;}
 
-    public void setUartUsbDriver(UsbSerialDriver driver)
-    {
-        uartUsbDriver = driver;
-    }
+    public void setUartUsbDriver(UsbSerialDriver driver) {uartUsbDriver = driver;}
 
-    public void setUartBaudrate(int baudrate)
-    {
-        this.baudrate = baudrate;
-    }
+    public void setUartBaudrate(int baudrate) {this.baudrate = baudrate;}
+
+    public boolean getIsSocketConnected() {return isSocketConnected;}
+
+    public boolean getIsUartConnected() {return isUartConnected;}
 
     public boolean connectToUart()
     {
@@ -174,14 +158,12 @@ public class IOService extends Service
                 while (isUartConnected)
                 {
                     int receiveLen = uartUsbPort.read(uartReceiveBuf, READ_WAIT_MILLIS);
-                    Log.w(TAG, "UART->UDP:recvLen" + receiveLen);
-                    if (receiveLen == 0)
-                        continue;
+                    if (receiveLen == 0) continue;
 
                     if (isTrafficLoggingEnabled)
-                        Log.w(TAG, "From UDP: " + new String(Arrays.copyOf(uartReceiveBuf, receiveLen) , "UTF-8"));
+                        Log.w(TAG, "From UDP: " + new String(Arrays.copyOf(uartReceiveBuf, receiveLen), "UTF-8"));
 
-                    if(isSocketConnected)
+                    if (isSocketConnected)
                     {
                         DatagramPacket sendPacket = new DatagramPacket(uartReceiveBuf, receiveLen, outboundAddress, outboundPort);
                         udpSocket.send(sendPacket);
@@ -199,7 +181,7 @@ public class IOService extends Service
 
     public void disconnectFromUart()
     {
-        if(uartUsbPort != null)
+        if (uartUsbPort != null)
         {
             try
             {
@@ -215,10 +197,7 @@ public class IOService extends Service
 
     public class LocalBinder extends Binder
     {
-        IOService getService()
-        {
-            return IOService.this;
-        }
+        IOService getService() {return IOService.this;}
     }
 
     private Notification createNotification()
@@ -226,11 +205,7 @@ public class IOService extends Service
         String appName = getString(R.string.app_name);
         Intent intent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName)
-                .setContentTitle(appName)
-                .setContentText(appName)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentIntent(pendingIntent);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName).setContentTitle(appName).setContentText(appName).setSmallIcon(R.mipmap.ic_launcher).setContentIntent(pendingIntent);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         {
             NotificationChannel channel = new NotificationChannel(appName, appName, NotificationManager.IMPORTANCE_DEFAULT);

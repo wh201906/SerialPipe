@@ -16,7 +16,6 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -36,9 +35,11 @@ public class MainActivity extends AppCompatActivity
 
     private UsbSerialDriver pendingPermissionUsbDriver = null;
 
-    EditText editTextTextMultiLine;
+    Button connectDisconnectUartButton = null;
+    EditText baudrateEdit = null;
 
-    private final BroadcastReceiver usbReceiver = new BroadcastReceiver()
+
+    private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver()
     {
         public void onReceive(Context context, Intent intent)
         {
@@ -49,22 +50,15 @@ public class MainActivity extends AppCompatActivity
                 {
                     UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
                     if (pendingPermissionUsbDriver != null && manager.hasPermission(pendingPermissionUsbDriver.getDevice()))
-                    {
-                        ioService.setUartUsbDriver(pendingPermissionUsbDriver);
-                        if (ioService.connectToUart())
-                            Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
-                        else
-                            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
-                    }
-                    else
-                    {
-                        Log.d(TAG, "Permission denied for driver: " + pendingPermissionUsbDriver);
-                    }
+                        connectUart(pendingPermissionUsbDriver);
+                    else Log.d(TAG, "Permission denied for driver: " + pendingPermissionUsbDriver);
+
                     pendingPermissionUsbDriver = null;
                 }
             }
         }
     };
+
     private final ServiceConnection ioServiceConn = new ServiceConnection()
     {
         @Override
@@ -78,10 +72,16 @@ public class MainActivity extends AppCompatActivity
         @Override
         public void onServiceDisconnected(ComponentName componentName)
         {
-            isIoServiceBound = false;
-            Intent serviceIntent = new Intent(MainActivity.this, IOService.class);
-            if (bindService(serviceIntent, ioServiceConn, 0)) isIoServiceBound = true;
-            else Log.e(TAG, "Failed to re-bind IOService");
+            if (isIoServiceBound)
+            {
+                // unexpected disconnected state, try to reconnect
+                Intent serviceIntent = new Intent(MainActivity.this, IOService.class);
+                if (!bindService(serviceIntent, ioServiceConn, 0))
+                {
+                    Log.e(TAG, "Failed to re-bind IOService");
+                    isIoServiceBound = false;
+                }
+            }
         }
     };
 
@@ -91,102 +91,111 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button startServerButton = findViewById(R.id.startServerButton);
-        Button stopServerButton = findViewById(R.id.stopServerButton);
-        Button connectUartButton = findViewById(R.id.connectUartButton);
-        TextView statusTextView = findViewById(R.id.statusTextView);
+        Button startStopServerButton = findViewById(R.id.startStopServerButton);
+        connectDisconnectUartButton = findViewById(R.id.connectDisconnectUartButton);
+        Button exitButton = findViewById(R.id.exitButton);
         EditText inboundPortEdit = findViewById(R.id.portEditText);
         CheckBox loggingTrafficCheckBox = findViewById(R.id.loggingTrafficCheckBox);
-        EditText baudrateEdit = findViewById(R.id.baudrateEditText);
-        editTextTextMultiLine = findViewById(R.id.editTextTextMultiLine);
+        baudrateEdit = findViewById(R.id.baudrateEditText);
 
-        startServerButton.setOnClickListener(v ->
+
+        startStopServerButton.setOnClickListener(v ->
         {
-            if (!isIoServiceBound)
-            {
-                return;
-            }
-            ioService.setInboundPort(Integer.parseInt(inboundPortEdit.getText().toString()));
-            if (isIoServiceBound && ioService.startUdpSocket())
-            {
-                statusTextView.setText("Status: Running");
-                startServerButton.setEnabled(false);
-                stopServerButton.setEnabled(true);
-                inboundPortEdit.setEnabled(false);
-            }
+            if (!isIoServiceBound) return;
 
-        });
-
-        stopServerButton.setOnClickListener(v ->
-        {
-            if (!isIoServiceBound)
+            if (!ioService.getIsSocketConnected())
             {
-                return;
-            }
-            ioService.stopUdpSocket();
-            stopServerButton.setEnabled(false);
-            startServerButton.setEnabled(true);
-            inboundPortEdit.setEnabled(true);
-            statusTextView.setText("Status: Stopped");
-
-
-        });
-
-        connectUartButton.setOnClickListener(v ->
-        {
-            if (!isIoServiceBound)
-            {
-                return;
-            }
-            UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-            List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-            if (!availableDrivers.isEmpty())
-            {
-                ioService.setUartBaudrate(Integer.parseInt(baudrateEdit.getText().toString()));
-                UsbSerialDriver driver = availableDrivers.get(0);
-                UsbDevice device = driver.getDevice();
-                if (manager.hasPermission(device))
+                // stop->start
+                ioService.setInboundPort(Integer.parseInt(inboundPortEdit.getText().toString()));
+                if (isIoServiceBound && ioService.startUdpSocket())
                 {
-                    ioService.setUartUsbDriver(driver);
-                    if (ioService.connectToUart())
-                        Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
+                    startStopServerButton.setText("Stop Server");
+                    inboundPortEdit.setEnabled(false);
+                }
+            }
+            else
+            {
+                // start->stop
+                ioService.stopUdpSocket();
+                startStopServerButton.setText("Start Server");
+                inboundPortEdit.setEnabled(true);
+            }
+        });
+
+        connectDisconnectUartButton.setOnClickListener(v ->
+        {
+            if (!isIoServiceBound) return;
+
+            if (!ioService.getIsUartConnected())
+            {
+                // disconnected->connected
+                UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
+                List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+                if (!availableDrivers.isEmpty())
+                {
+                    ioService.setUartBaudrate(Integer.parseInt(baudrateEdit.getText().toString()));
+                    UsbSerialDriver driver = availableDrivers.get(0);
+                    UsbDevice device = driver.getDevice();
+                    if (manager.hasPermission(device))
+                    {
+                        connectUart(driver);
+                    }
                     else
-                        Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
+                    {
+                        PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
+                        pendingPermissionUsbDriver = driver;
+                        manager.requestPermission(device, permissionIntent);
+                    }
                 }
-                else
-                {
-                    PendingIntent permissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
-                    pendingPermissionUsbDriver = driver;
-                    manager.requestPermission(device, permissionIntent);
-                }
+
+            }
+            else
+            {
+                // connected->disconnected
+                ioService.disconnectFromUart();
+                connectDisconnectUartButton.setText("Connect");
+                baudrateEdit.setEnabled(true);
             }
         });
 
         loggingTrafficCheckBox.setOnClickListener(v ->
         {
-            if (isIoServiceBound)
-            {
-                return;
-            }
-            ioService.setTrafficLogging(((CheckBox) v).isChecked());
+            if (isIoServiceBound) return;
 
+            ioService.setTrafficLogging(((CheckBox) v).isChecked());
+        });
+
+        exitButton.setOnClickListener(v ->
+        {
+            stopService(new Intent(this, IOService.class));
+            finish();
         });
 
         Intent serviceIntent = new Intent(this, IOService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent);
+        else startService(serviceIntent);
+
+        bindService(serviceIntent, ioServiceConn, 0);
+        // isIoServiceBound will be set to true in ServiceConnection.onServiceConnected();
+
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        registerReceiver(usbPermissionReceiver, filter);
+    }
+
+    private void connectUart(UsbSerialDriver driver)
+    {
+        ioService.setUartUsbDriver(driver);
+        if (ioService.connectToUart())
         {
-            startForegroundService(serviceIntent);
+            Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
+            connectDisconnectUartButton.setText("Disconnect");
+            baudrateEdit.setEnabled(false);
         }
         else
         {
-            startService(serviceIntent);
+            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
         }
-        if (bindService(serviceIntent, ioServiceConn, 0)) isIoServiceBound = true;
-
-
-        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-        registerReceiver(usbReceiver, filter);
-
     }
 
     @Override
@@ -194,8 +203,8 @@ public class MainActivity extends AppCompatActivity
     {
         if (isIoServiceBound)
         {
-            unbindService(ioServiceConn);
             isIoServiceBound = false;
+            unbindService(ioServiceConn);
         }
         super.onDestroy();
     }
