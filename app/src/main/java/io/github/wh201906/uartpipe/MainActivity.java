@@ -25,7 +25,7 @@ import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity
+public class MainActivity extends AppCompatActivity implements IOService.OnErrorListener
 {
     private static final String TAG = "IOService";
     private static final String ACTION_USB_PERMISSION = "io.github.wh201906.uartpipe.USB_PERMISSION";
@@ -36,7 +36,9 @@ public class MainActivity extends AppCompatActivity
     private UsbSerialDriver pendingPermissionUsbDriver = null;
 
     Button connectDisconnectUartButton = null;
+    Button startStopServerButton = null;
     EditText baudrateEdit = null;
+    EditText inboundPortEdit = null;
 
 
     private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver()
@@ -67,6 +69,8 @@ public class MainActivity extends AppCompatActivity
             IOService.LocalBinder binder = (IOService.LocalBinder) service;
             ioService = binder.getService();
             isIoServiceBound = true;
+            syncIoServiceState();
+            ioService.addOnErrorListener(MainActivity.this);
         }
 
         @Override
@@ -91,10 +95,10 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button startStopServerButton = findViewById(R.id.startStopServerButton);
+        startStopServerButton = findViewById(R.id.startStopServerButton);
         connectDisconnectUartButton = findViewById(R.id.connectDisconnectUartButton);
         Button exitButton = findViewById(R.id.exitButton);
-        EditText inboundPortEdit = findViewById(R.id.portEditText);
+        inboundPortEdit = findViewById(R.id.portEditText);
         CheckBox loggingTrafficCheckBox = findViewById(R.id.loggingTrafficCheckBox);
         baudrateEdit = findViewById(R.id.baudrateEditText);
 
@@ -105,20 +109,15 @@ public class MainActivity extends AppCompatActivity
 
             if (!ioService.getIsSocketConnected())
             {
-                // stop->start
                 ioService.setInboundPort(Integer.parseInt(inboundPortEdit.getText().toString()));
-                if (isIoServiceBound && ioService.startUdpSocket())
-                {
-                    startStopServerButton.setText("Stop Server");
-                    inboundPortEdit.setEnabled(false);
-                }
+                ioService.startUdpSocket();
+                syncIoServiceState();
+
             }
             else
             {
-                // start->stop
                 ioService.stopUdpSocket();
-                startStopServerButton.setText("Start Server");
-                inboundPortEdit.setEnabled(true);
+                syncIoServiceState();
             }
         });
 
@@ -147,14 +146,16 @@ public class MainActivity extends AppCompatActivity
                         manager.requestPermission(device, permissionIntent);
                     }
                 }
-
+                else
+                {
+                    Toast.makeText(MainActivity.this, "UART: No device found", Toast.LENGTH_SHORT).show();
+                }
             }
             else
             {
                 // connected->disconnected
                 ioService.disconnectFromUart();
-                connectDisconnectUartButton.setText("Connect");
-                baudrateEdit.setEnabled(true);
+                syncIoServiceState();
             }
         });
 
@@ -173,6 +174,7 @@ public class MainActivity extends AppCompatActivity
 
         Intent serviceIntent = new Intent(this, IOService.class);
 
+        // If the IOService is already running, calling start(Foreground)Service has no side effect.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(serviceIntent);
         else startService(serviceIntent);
 
@@ -189,12 +191,37 @@ public class MainActivity extends AppCompatActivity
         if (ioService.connectToUart())
         {
             Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
+            syncIoServiceState();
+        }
+        else
+        {
+            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void syncIoServiceState()
+    {
+        if (!isIoServiceBound) return;
+
+        if (ioService.getIsUartConnected())
+        {
             connectDisconnectUartButton.setText("Disconnect");
             baudrateEdit.setEnabled(false);
         }
         else
         {
-            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
+            connectDisconnectUartButton.setText("Connect");
+            baudrateEdit.setEnabled(true);
+        }
+        if (ioService.getIsSocketConnected())
+        {
+            startStopServerButton.setText("Stop Server");
+            inboundPortEdit.setEnabled(false);
+        }
+        else
+        {
+            startStopServerButton.setText("Start Server");
+            inboundPortEdit.setEnabled(true);
         }
     }
 
@@ -204,8 +231,23 @@ public class MainActivity extends AppCompatActivity
         if (isIoServiceBound)
         {
             isIoServiceBound = false;
+            ioService.removeOnErrorListener(this);
             unbindService(ioServiceConn);
         }
         super.onDestroy();
+    }
+
+    @Override
+    public void onUdpError(Exception e)
+    {
+        Toast.makeText(MainActivity.this, "UDP Error:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        syncIoServiceState();
+    }
+
+    @Override
+    public void onUartError(Exception e)
+    {
+        Toast.makeText(MainActivity.this, "UART Error:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        syncIoServiceState();
     }
 }
