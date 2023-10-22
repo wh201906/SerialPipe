@@ -11,6 +11,7 @@
     <string name="activity_main_baudrate">"Baudrate: "</string>
     <string name="activity_main_about">About</string>
     <string name="activity_main_exit">Exit</string>
+    <string name="activity_about_title">About</string>
     <string name="activity_about_version">"Version: %1$s"</string>
     <string name="activity_about_info">Latest Release: \nhttps://github.com/wh201906/SerialPipe/releases/ \nBug Report: \nhttps://github.com/wh201906/SerialPipe/issues/</string>
     <string name="activity_about_back">Back</string>

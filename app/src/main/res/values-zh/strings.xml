@@ -9,6 +9,7 @@
     <string name="activity_main_port">"端口号："</string>
     <string name="activity_main_baudrate">"波特率："</string>
     <string name="activity_main_exit">退出</string>
+    <string name="activity_about_title">关于</string>
     <string name="activity_about_version">"版本：%1$s"</string>
     <string name="activity_main_about">关于</string>
     <string name="activity_about_info">检查更新：\nhttps://github.com/wh201906/SerialPipe/releases/ \n反馈问题：\nhttps://github.com/wh201906/SerialPipe/issues/</string>
