@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace 'io.github.wh201906.uartpipe'
-    compileSdk 33
+    compileSdk 32
 
     defaultConfig {
         applicationId "io.github.wh201906.uartpipe"
         minSdk 17
-        targetSdk 33
+        targetSdk 32
         versionCode 1
         versionName "1.0"
 

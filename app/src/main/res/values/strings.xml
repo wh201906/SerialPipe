@@ -1,3 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">UARTPipe</string>
+    <string name="activity_main_net_udp">UDP</string>
+    <string name="activity_main_uart_usb">"USB UART"</string>
+    <string name="activity_main_disconnect">Disconnect</string>
+    <string name="activity_main_connect">Connect</string>
+    <string name="activity_main_stop_server">Stop Server</string>
+    <string name="activity_main_start_server">Start Server</string>
+    <string name="activity_main_port">"Port: "</string>
+    <string name="activity_main_baudrate">"Baudrate: "</string>
+    <string name="activity_main_about">About</string>
+    <string name="activity_main_exit">Exit</string>
+    <string name="activity_about_version">"Version: %1$s"</string>
+    <string name="activity_about_info">Latest Release: \nhttps://github.com/wh201906/UARTPipe/releases/ \nBug Report: \nhttps://github.com/wh201906/UARTPipe/issues/</string>
+    <string name="activity_about_back">Back</string>
+    <string name="toast_no_device_found">No device found</string>
+    <string name="toast_connected">Connected</string>
+    <string name="toast_failed_to_connect">Failed to connect</string>
+    <string name="toast_udp_error">"UDP Error: "</string>
+    <string name="toast_uart_error">"UART Error: "</string>
+    <string name="notification_exit">Exit</string>
 </resources>

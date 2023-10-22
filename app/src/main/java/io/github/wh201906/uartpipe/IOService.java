@@ -56,6 +56,8 @@ public class IOService extends Service
 
     private boolean isSocketConnected = false;
     private boolean isUartConnected = false;
+    private boolean ignoreSocketError = true;
+    private boolean ignoreUartError = true;
     private boolean isTrafficLoggingEnabled = false;
 
     private List<WeakReference<OnErrorListener>> onErrorListenerList = new ArrayList<>();
@@ -83,6 +85,7 @@ public class IOService extends Service
 
     public boolean startUdpSocket()
     {
+        ignoreSocketError = false;
         try
         {
             udpSocket = new DatagramSocket(inboundPort);
@@ -105,7 +108,7 @@ public class IOService extends Service
                 {
                     e.printStackTrace();
                     stopUdpSocket(); // this should be called before calling onUdpError() of every listener
-                    uiHandler.post(() ->
+                    if(!ignoreSocketError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -126,7 +129,7 @@ public class IOService extends Service
                 {
                     e.printStackTrace();
                     disconnectFromUart(); // this should be called before calling onUartError() of every listener
-                    uiHandler.post(() ->
+                    if(!ignoreUartError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -145,6 +148,7 @@ public class IOService extends Service
     {
         if (udpSocket != null)
         {
+            ignoreSocketError = true;
             udpSocket.close();
             isSocketConnected = false;
         }
@@ -171,6 +175,7 @@ public class IOService extends Service
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
         UsbDeviceConnection connection = manager.openDevice(uartUsbDriver.getDevice());
         if (connection == null) return false;
+        ignoreUartError = false;
         uartUsbPort = uartUsbDriver.getPorts().get(0);
         try
         {
@@ -194,7 +199,7 @@ public class IOService extends Service
                 {
                     e.printStackTrace();
                     disconnectFromUart(); // this should be called before calling onUartError() of every listener
-                    uiHandler.post(() ->
+                    if(!ignoreUartError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -218,7 +223,7 @@ public class IOService extends Service
                     {
                         e.printStackTrace();
                         stopUdpSocket(); // this should be called before calling onUdpError() of every listener
-                        uiHandler.post(() ->
+                        if(!ignoreSocketError) uiHandler.post(() ->
                         {
                             for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                             {
@@ -251,6 +256,7 @@ public class IOService extends Service
     {
         if (uartUsbPort != null)
         {
+            ignoreUartError = true;
             try
             {
                 uartUsbPort.close();
@@ -272,8 +278,11 @@ public class IOService extends Service
     {
         String appName = getString(R.string.app_name);
         Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName).setContentTitle(appName).setContentText(appName).setSmallIcon(R.mipmap.ic_launcher).setContentIntent(pendingIntent);
+        intent.setAction(MainActivity.ACTION_LOAD_MAINACTIVITY);
+        PendingIntent loadActivityPendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        intent.setAction(MainActivity.ACTION_EXIT);
+        PendingIntent exitPendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, appName).setContentTitle(appName).setContentText(appName).setSmallIcon(R.mipmap.ic_launcher).setContentIntent(loadActivityPendingIntent).addAction(R.mipmap.ic_launcher, getString(R.string.notification_exit), exitPendingIntent);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         {
             NotificationChannel channel = new NotificationChannel(appName, appName, NotificationManager.IMPORTANCE_DEFAULT);

@@ -27,8 +27,10 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements IOService.OnErrorListener
 {
-    private static final String TAG = "IOService";
-    private static final String ACTION_USB_PERMISSION = "io.github.wh201906.uartpipe.USB_PERMISSION";
+    private static final String TAG = "MainActivity";
+    private static final String ACTION_USB_PERMISSION = "io.github.wh201906.uartpipe.ACTION_USB_PERMISSION";
+    public static final String ACTION_LOAD_MAINACTIVITY = "io.github.wh201906.uartpipe.ACTION_LOAD_MAINACTIVITY";
+    public static final String ACTION_EXIT = "io.github.wh201906.uartpipe.ACTION_EXIT";
 
     private IOService ioService = null;
     private boolean isIoServiceBound = false;
@@ -95,8 +97,12 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Log.w(TAG, "onCreate: " + getIntent());
+        ProcessIntent();
+
         startStopServerButton = findViewById(R.id.startStopServerButton);
         connectDisconnectUartButton = findViewById(R.id.connectDisconnectUartButton);
+        Button aboutButton = findViewById(R.id.aboutButton);
         Button exitButton = findViewById(R.id.exitButton);
         inboundPortEdit = findViewById(R.id.portEditText);
         CheckBox loggingTrafficCheckBox = findViewById(R.id.loggingTrafficCheckBox);
@@ -148,7 +154,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
                 }
                 else
                 {
-                    Toast.makeText(MainActivity.this, "UART: No device found", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_no_device_found), Toast.LENGTH_SHORT).show();
                 }
             }
             else
@@ -164,6 +170,12 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
             if (isIoServiceBound) return;
 
             ioService.setTrafficLogging(((CheckBox) v).isChecked());
+        });
+
+        aboutButton.setOnClickListener(v ->
+        {
+            Intent intent = new Intent(this, AboutActivity.class);
+            startActivity(intent);
         });
 
         exitButton.setOnClickListener(v ->
@@ -190,12 +202,12 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         ioService.setUartUsbDriver(driver);
         if (ioService.connectToUart())
         {
-            Toast.makeText(MainActivity.this, "UART Connected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_connected), Toast.LENGTH_SHORT).show();
             syncIoServiceState();
         }
         else
         {
-            Toast.makeText(MainActivity.this, "Failed to connect to UART", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_failed_to_connect), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -205,22 +217,22 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
 
         if (ioService.getIsUartConnected())
         {
-            connectDisconnectUartButton.setText("Disconnect");
+            connectDisconnectUartButton.setText(R.string.activity_main_disconnect);
             baudrateEdit.setEnabled(false);
         }
         else
         {
-            connectDisconnectUartButton.setText("Connect");
+            connectDisconnectUartButton.setText(R.string.activity_main_connect);
             baudrateEdit.setEnabled(true);
         }
         if (ioService.getIsSocketConnected())
         {
-            startStopServerButton.setText("Stop Server");
+            startStopServerButton.setText(R.string.activity_main_stop_server);
             inboundPortEdit.setEnabled(false);
         }
         else
         {
-            startStopServerButton.setText("Start Server");
+            startStopServerButton.setText(R.string.activity_main_start_server);
             inboundPortEdit.setEnabled(true);
         }
     }
@@ -240,14 +252,38 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
     @Override
     public void onUdpError(Exception e)
     {
-        Toast.makeText(MainActivity.this, "UDP Error:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, getString(R.string.toast_udp_error) + e.getMessage(), Toast.LENGTH_SHORT).show();
         syncIoServiceState();
     }
 
     @Override
     public void onUartError(Exception e)
     {
-        Toast.makeText(MainActivity.this, "UART Error:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, getString(R.string.toast_uart_error) + e.getMessage(), Toast.LENGTH_SHORT).show();
         syncIoServiceState();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent)
+    {
+        super.onNewIntent(intent);
+        Log.w(TAG, "onNewIntent: " + intent.toString());
+        setIntent(intent);
+        ProcessIntent();
+    }
+
+    private void ProcessIntent()
+    {
+        Intent intent = getIntent();
+        String action = intent.getAction();
+        if (action == null) action = "(none)";
+
+        Log.w(TAG, "ProcessIntent: " + intent.toString() + ", action: " + action);
+        if (action.equals(ACTION_EXIT))
+        {
+            // same as exitButton.setOnClickListener(...)
+            stopService(new Intent(this, IOService.class));
+            finish();
+        }
     }
 }
