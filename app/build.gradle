@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'io.github.wh201906.uartpipe'
+    namespace 'io.github.wh201906.serialpipe'
     compileSdk 32
 
     defaultConfig {
-        applicationId "io.github.wh201906.uartpipe"
+        applicationId "io.github.wh201906.serialpipe"
         minSdk 17
         targetSdk 32
         versionCode 1

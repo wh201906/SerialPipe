@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="activity_main_net_udp">UDP</string>
-    <string name="activity_main_uart_usb">USB串口</string>
+    <string name="activity_main_serial_usb">USB串口</string>
     <string name="activity_main_disconnect">断开连接</string>
     <string name="activity_main_connect">连接</string>
     <string name="activity_main_stop_server">停止服务器</string>
     <string name="activity_main_start_server">启动服务器</string>
-    <string name="activity_main_port">"端口号: "</string>
-    <string name="activity_main_baudrate">"波特率: "</string>
+    <string name="activity_main_port">"端口号："</string>
+    <string name="activity_main_baudrate">"波特率："</string>
     <string name="activity_main_exit">退出</string>
-    <string name="activity_about_version">"版本： %1$s"</string>
+    <string name="activity_about_version">"版本：%1$s"</string>
     <string name="activity_main_about">关于</string>
-    <string name="activity_about_info">检查更新： \nhttps://github.com/wh201906/UARTPipe/releases/ \n反馈问题： \nhttps://github.com/wh201906/UARTPipe/issues/</string>
+    <string name="activity_about_info">检查更新：\nhttps://github.com/wh201906/SerialPipe/releases/ \n反馈问题：\nhttps://github.com/wh201906/SerialPipe/issues/</string>
     <string name="activity_about_back">返回</string>
     <string name="toast_no_device_found">未找到设备</string>
     <string name="toast_connected">已连接</string>
     <string name="toast_failed_to_connect">无法连接</string>
-    <string name="toast_udp_error">"UDP错误: "</string>
-    <string name="toast_uart_error">"UART错误: "</string>
+    <string name="toast_udp_error">"UDP错误："</string>
+    <string name="toast_serial_error">"串口错误："</string>
+    <string name="toast_serial">"串口："</string>
     <string name="notification_exit">退出</string>
 </resources>

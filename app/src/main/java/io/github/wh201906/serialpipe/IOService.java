@@ -1,4 +1,4 @@
-package io.github.wh201906.uartpipe;
+package io.github.wh201906.serialpipe;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -50,14 +50,14 @@ public class IOService extends Service
     DatagramPacket udpReceivePacket = new DatagramPacket(udpReceiveBuf, udpReceiveBuf.length);
 
     private int baudrate = 115200;
-    private UsbSerialDriver uartUsbDriver = null;
-    private UsbSerialPort uartUsbPort = null;
-    byte[] uartReceiveBuf = new byte[4096];
+    private UsbSerialDriver serialUsbDriver = null;
+    private UsbSerialPort serialUsbPort = null;
+    byte[] serialReceiveBuf = new byte[4096];
 
     private boolean isSocketConnected = false;
-    private boolean isUartConnected = false;
+    private boolean isSerialConnected = false;
     private boolean ignoreSocketError = true;
-    private boolean ignoreUartError = true;
+    private boolean ignoreSerialError = true;
     private boolean isTrafficLoggingEnabled = false;
 
     private List<WeakReference<OnErrorListener>> onErrorListenerList = new ArrayList<>();
@@ -124,17 +124,17 @@ public class IOService extends Service
 
                 try
                 {
-                    if (isUartConnected) uartUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
+                    if (isSerialConnected) serialUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
-                    disconnectFromUart(); // this should be called before calling onUartError() of every listener
-                    if(!ignoreUartError) uiHandler.post(() ->
+                    disconnectFromSerial(); // this should be called before calling onSerialError() of every listener
+                    if(!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
                             OnErrorListener listener = listenerRef.get();
-                            if (listener != null) listener.onUartError(e);
+                            if (listener != null) listener.onSerialError(e);
                         }
                     });
                 }
@@ -162,25 +162,25 @@ public class IOService extends Service
 
     public void setTrafficLogging(boolean enabled) {isTrafficLoggingEnabled = enabled;}
 
-    public void setUartUsbDriver(UsbSerialDriver driver) {uartUsbDriver = driver;}
+    public void setSerialUsbDriver(UsbSerialDriver driver) {serialUsbDriver = driver;}
 
-    public void setUartBaudrate(int baudrate) {this.baudrate = baudrate;}
+    public void setSerialBaudrate(int baudrate) {this.baudrate = baudrate;}
 
     public boolean getIsSocketConnected() {return isSocketConnected;}
 
-    public boolean getIsUartConnected() {return isUartConnected;}
+    public boolean getIsSerialConnected() {return isSerialConnected;}
 
-    public boolean connectToUart()
+    public boolean connectToSerial()
     {
         UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
-        UsbDeviceConnection connection = manager.openDevice(uartUsbDriver.getDevice());
+        UsbDeviceConnection connection = manager.openDevice(serialUsbDriver.getDevice());
         if (connection == null) return false;
-        ignoreUartError = false;
-        uartUsbPort = uartUsbDriver.getPorts().get(0);
+        ignoreSerialError = false;
+        serialUsbPort = serialUsbDriver.getPorts().get(0);
         try
         {
-            uartUsbPort.open(connection);
-            uartUsbPort.setParameters(baudrate, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            serialUsbPort.open(connection);
+            serialUsbPort.setParameters(baudrate, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -189,33 +189,33 @@ public class IOService extends Service
         new Thread(() ->
         {
 //            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            while (isUartConnected)
+            while (isSerialConnected)
             {
                 int receiveLen = 0;
                 try
                 {
-                    receiveLen = uartUsbPort.read(uartReceiveBuf, READ_WAIT_MILLIS);
+                    receiveLen = serialUsbPort.read(serialReceiveBuf, READ_WAIT_MILLIS);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
-                    disconnectFromUart(); // this should be called before calling onUartError() of every listener
-                    if(!ignoreUartError) uiHandler.post(() ->
+                    disconnectFromSerial(); // this should be called before calling onSerialError() of every listener
+                    if(!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
                             OnErrorListener listener = listenerRef.get();
-                            if (listener != null) listener.onUartError(e);
+                            if (listener != null) listener.onSerialError(e);
                         }
                     });
                 }
                 if (receiveLen == 0) continue;
 
                 if (isTrafficLoggingEnabled)
-                    logTraffic("USB", Arrays.copyOf(uartReceiveBuf, receiveLen));
+                    logTraffic("USB", Arrays.copyOf(serialReceiveBuf, receiveLen));
 
                 if (isSocketConnected)
                 {
-                    DatagramPacket sendPacket = new DatagramPacket(uartReceiveBuf, receiveLen, outboundAddress, outboundPort);
+                    DatagramPacket sendPacket = new DatagramPacket(serialReceiveBuf, receiveLen, outboundAddress, outboundPort);
                     try
                     {
                         udpSocket.send(sendPacket);
@@ -236,7 +236,7 @@ public class IOService extends Service
             }
 
         }).start();
-        isUartConnected = true;
+        isSerialConnected = true;
         return true;
     }
 
@@ -252,21 +252,21 @@ public class IOService extends Service
 
     }
 
-    public void disconnectFromUart()
+    public void disconnectFromSerial()
     {
-        if (uartUsbPort != null)
+        if (serialUsbPort != null)
         {
-            ignoreUartError = true;
+            ignoreSerialError = true;
             try
             {
-                uartUsbPort.close();
+                serialUsbPort.close();
             } catch (IOException e)
             {
                 e.printStackTrace();
             }
-            uartUsbPort = null;
+            serialUsbPort = null;
         }
-        isUartConnected = false;
+        isSerialConnected = false;
     }
 
     public class LocalBinder extends Binder
@@ -296,7 +296,7 @@ public class IOService extends Service
     {
         void onUdpError(Exception e);
 
-        void onUartError(Exception e);
+        void onSerialError(Exception e);
     }
 
     public void addOnErrorListener(OnErrorListener listener)

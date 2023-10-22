@@ -1,4 +1,4 @@
-package io.github.wh201906.uartpipe;
+package io.github.wh201906.serialpipe;
 
 import android.os.Bundle;
 import android.widget.Button;

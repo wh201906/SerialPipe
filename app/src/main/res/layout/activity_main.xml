@@ -69,7 +69,7 @@
         app:layout_constraintBottom_toBottomOf="@+id/baudrateEditText"
         app:layout_constraintEnd_toStartOf="@+id/baudrateEditText"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/uartTypeTextView" />
+        app:layout_constraintTop_toBottomOf="@+id/serialTypeTextView" />
 
     <EditText
         android:id="@+id/baudrateEditText"
@@ -81,11 +81,11 @@
         android:text="115200"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/textView"
-        app:layout_constraintTop_toBottomOf="@+id/uartTypeTextView" />
+        app:layout_constraintTop_toBottomOf="@+id/serialTypeTextView" />
 
 
     <Button
-        android:id="@+id/connectDisconnectUartButton"
+        android:id="@+id/connectDisconnectSerialButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
@@ -134,14 +134,14 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:id="@+id/uartTypeTextView"
+        android:id="@+id/serialTypeTextView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
         android:gravity="center_horizontal"
-        android:text="@string/activity_main_uart_usb"
+        android:text="@string/activity_main_serial_usb"
         android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -155,7 +155,7 @@
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
         android:background="?android:attr/listDivider"
-        app:layout_constraintBottom_toTopOf="@+id/uartTypeTextView"
+        app:layout_constraintBottom_toTopOf="@+id/serialTypeTextView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 

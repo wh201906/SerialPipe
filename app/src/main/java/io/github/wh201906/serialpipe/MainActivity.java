@@ -1,4 +1,4 @@
-package io.github.wh201906.uartpipe;
+package io.github.wh201906.serialpipe;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -28,16 +28,16 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity implements IOService.OnErrorListener
 {
     private static final String TAG = "MainActivity";
-    private static final String ACTION_USB_PERMISSION = "io.github.wh201906.uartpipe.ACTION_USB_PERMISSION";
-    public static final String ACTION_LOAD_MAINACTIVITY = "io.github.wh201906.uartpipe.ACTION_LOAD_MAINACTIVITY";
-    public static final String ACTION_EXIT = "io.github.wh201906.uartpipe.ACTION_EXIT";
+    private static final String ACTION_USB_PERMISSION = "io.github.wh201906.serialpipe.ACTION_USB_PERMISSION";
+    public static final String ACTION_LOAD_MAINACTIVITY = "io.github.wh201906.serialpipe.ACTION_LOAD_MAINACTIVITY";
+    public static final String ACTION_EXIT = "io.github.wh201906.serialpipe.ACTION_EXIT";
 
     private IOService ioService = null;
     private boolean isIoServiceBound = false;
 
     private UsbSerialDriver pendingPermissionUsbDriver = null;
 
-    Button connectDisconnectUartButton = null;
+    Button connectDisconnectSerialButton = null;
     Button startStopServerButton = null;
     EditText baudrateEdit = null;
     EditText inboundPortEdit = null;
@@ -54,7 +54,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
                 {
                     UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
                     if (pendingPermissionUsbDriver != null && manager.hasPermission(pendingPermissionUsbDriver.getDevice()))
-                        connectUart(pendingPermissionUsbDriver);
+                        connectSerial(pendingPermissionUsbDriver);
                     else Log.d(TAG, "Permission denied for driver: " + pendingPermissionUsbDriver);
 
                     pendingPermissionUsbDriver = null;
@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         ProcessIntent();
 
         startStopServerButton = findViewById(R.id.startStopServerButton);
-        connectDisconnectUartButton = findViewById(R.id.connectDisconnectUartButton);
+        connectDisconnectSerialButton = findViewById(R.id.connectDisconnectSerialButton);
         Button aboutButton = findViewById(R.id.aboutButton);
         Button exitButton = findViewById(R.id.exitButton);
         inboundPortEdit = findViewById(R.id.portEditText);
@@ -127,23 +127,23 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
             }
         });
 
-        connectDisconnectUartButton.setOnClickListener(v ->
+        connectDisconnectSerialButton.setOnClickListener(v ->
         {
             if (!isIoServiceBound) return;
 
-            if (!ioService.getIsUartConnected())
+            if (!ioService.getIsSerialConnected())
             {
                 // disconnected->connected
                 UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
                 List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
                 if (!availableDrivers.isEmpty())
                 {
-                    ioService.setUartBaudrate(Integer.parseInt(baudrateEdit.getText().toString()));
+                    ioService.setSerialBaudrate(Integer.parseInt(baudrateEdit.getText().toString()));
                     UsbSerialDriver driver = availableDrivers.get(0);
                     UsbDevice device = driver.getDevice();
                     if (manager.hasPermission(device))
                     {
-                        connectUart(driver);
+                        connectSerial(driver);
                     }
                     else
                     {
@@ -154,13 +154,13 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
                 }
                 else
                 {
-                    Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_no_device_found), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, getString(R.string.toast_serial) + getString(R.string.toast_no_device_found), Toast.LENGTH_SHORT).show();
                 }
             }
             else
             {
                 // connected->disconnected
-                ioService.disconnectFromUart();
+                ioService.disconnectFromSerial();
                 syncIoServiceState();
             }
         });
@@ -197,17 +197,17 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         registerReceiver(usbPermissionReceiver, filter);
     }
 
-    private void connectUart(UsbSerialDriver driver)
+    private void connectSerial(UsbSerialDriver driver)
     {
-        ioService.setUartUsbDriver(driver);
-        if (ioService.connectToUart())
+        ioService.setSerialUsbDriver(driver);
+        if (ioService.connectToSerial())
         {
-            Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_connected), Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, getString(R.string.toast_serial) + getString(R.string.toast_connected), Toast.LENGTH_SHORT).show();
             syncIoServiceState();
         }
         else
         {
-            Toast.makeText(MainActivity.this, "UART: " + getString(R.string.toast_failed_to_connect), Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, getString(R.string.toast_serial) + getString(R.string.toast_failed_to_connect), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -215,14 +215,14 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
     {
         if (!isIoServiceBound) return;
 
-        if (ioService.getIsUartConnected())
+        if (ioService.getIsSerialConnected())
         {
-            connectDisconnectUartButton.setText(R.string.activity_main_disconnect);
+            connectDisconnectSerialButton.setText(R.string.activity_main_disconnect);
             baudrateEdit.setEnabled(false);
         }
         else
         {
-            connectDisconnectUartButton.setText(R.string.activity_main_connect);
+            connectDisconnectSerialButton.setText(R.string.activity_main_connect);
             baudrateEdit.setEnabled(true);
         }
         if (ioService.getIsSocketConnected())
@@ -257,9 +257,9 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
     }
 
     @Override
-    public void onUartError(Exception e)
+    public void onSerialError(Exception e)
     {
-        Toast.makeText(MainActivity.this, getString(R.string.toast_uart_error) + e.getMessage(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, getString(R.string.toast_serial_error) + e.getMessage(), Toast.LENGTH_SHORT).show();
         syncIoServiceState();
     }
 
