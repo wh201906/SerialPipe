@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">SerialPipe</string>
     <string name="activity_main_net_udp">UDP</string>
     <string name="activity_main_serial_usb">USB串口</string>
     <string name="activity_main_disconnect">断开连接</string>
