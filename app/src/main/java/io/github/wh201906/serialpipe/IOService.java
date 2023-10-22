@@ -312,7 +312,7 @@ public class IOService extends Service
             if (existingElement == null) iterator.remove(); // clean up: remove null
             else if (existingElement.equals(listener)) exist = true;
         }
-        if (!exist) onErrorListenerList.add(new WeakReference<OnErrorListener>(listener));
+        if (!exist) onErrorListenerList.add(new WeakReference<>(listener));
     }
 
     public void removeOnErrorListener(OnErrorListener listener)

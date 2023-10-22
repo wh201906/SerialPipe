@@ -16,10 +16,7 @@ public class AboutActivity extends AppCompatActivity
 
         Button backButton = findViewById(R.id.backButton);
         TextView versionTextView = findViewById(R.id.versionTextView);
-        backButton.setOnClickListener(v ->
-        {
-            AboutActivity.this.finish();
-        });
+        backButton.setOnClickListener(v -> AboutActivity.this.finish());
         versionTextView.setText(getString(R.string.activity_about_version, BuildConfig.VERSION_NAME));
     }
 }

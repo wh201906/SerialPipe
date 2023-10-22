@@ -2,7 +2,6 @@
 
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -30,7 +29,6 @@
         android:layout_marginEnd="8dp"
         android:ems="10"
         android:inputType="number"
-        android:text="18888"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
@@ -78,7 +76,6 @@
         android:layout_marginEnd="8dp"
         android:ems="10"
         android:inputType="number"
-        android:text="115200"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@+id/textView"
         app:layout_constraintTop_toBottomOf="@+id/serialTypeTextView" />

@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
@@ -32,6 +33,9 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
     public static final String ACTION_LOAD_MAINACTIVITY = "io.github.wh201906.serialpipe.ACTION_LOAD_MAINACTIVITY";
     public static final String ACTION_EXIT = "io.github.wh201906.serialpipe.ACTION_EXIT";
 
+    private static final String KEY_SERIAL_BAUDRATE = "io.github.wh201906.serialpipe.KEY_SERIAL_BAUDRATE";
+    private static final String KEY_NET_PORT_INBOUND = "io.github.wh201906.serialpipe.KEY_NET_PORT_INBOUND";
+
     private IOService ioService = null;
     private boolean isIoServiceBound = false;
 
@@ -41,6 +45,8 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
     Button startStopServerButton = null;
     EditText baudrateEdit = null;
     EditText inboundPortEdit = null;
+
+    SharedPreferences activityPreferences = null;
 
 
     private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver()
@@ -100,6 +106,8 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         Log.w(TAG, "onCreate: " + getIntent());
         ProcessIntent();
 
+        activityPreferences = getPreferences(Context.MODE_PRIVATE);
+
         startStopServerButton = findViewById(R.id.startStopServerButton);
         connectDisconnectSerialButton = findViewById(R.id.connectDisconnectSerialButton);
         Button aboutButton = findViewById(R.id.aboutButton);
@@ -108,6 +116,8 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         CheckBox loggingTrafficCheckBox = findViewById(R.id.loggingTrafficCheckBox);
         baudrateEdit = findViewById(R.id.baudrateEditText);
 
+        inboundPortEdit.setText(String.valueOf(activityPreferences.getInt(KEY_NET_PORT_INBOUND, 18888)));
+        baudrateEdit.setText(String.valueOf(activityPreferences.getInt(KEY_SERIAL_BAUDRATE, 115200)));
 
         startStopServerButton.setOnClickListener(v ->
         {
@@ -115,7 +125,9 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
 
             if (!ioService.getIsSocketConnected())
             {
-                ioService.setInboundPort(Integer.parseInt(inboundPortEdit.getText().toString()));
+                int inboundPort = Integer.parseInt(inboundPortEdit.getText().toString());
+                ioService.setInboundPort(inboundPort);
+                activityPreferences.edit().putInt(KEY_NET_PORT_INBOUND, inboundPort).apply();
                 ioService.startUdpSocket();
                 syncIoServiceState();
 
@@ -138,7 +150,9 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
                 List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
                 if (!availableDrivers.isEmpty())
                 {
-                    ioService.setSerialBaudrate(Integer.parseInt(baudrateEdit.getText().toString()));
+                    int baudrate = Integer.parseInt(baudrateEdit.getText().toString());
+                    ioService.setSerialBaudrate(baudrate);
+                    activityPreferences.edit().putInt(KEY_SERIAL_BAUDRATE, baudrate).apply();
                     UsbSerialDriver driver = availableDrivers.get(0);
                     UsbDevice device = driver.getDevice();
                     if (manager.hasPermission(device))
@@ -278,7 +292,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         String action = intent.getAction();
         if (action == null) action = "(none)";
 
-        Log.w(TAG, "ProcessIntent: " + intent.toString() + ", action: " + action);
+        Log.w(TAG, "ProcessIntent: " + intent + ", action: " + action);
         if (action.equals(ACTION_EXIT))
         {
             // same as exitButton.setOnClickListener(...)
