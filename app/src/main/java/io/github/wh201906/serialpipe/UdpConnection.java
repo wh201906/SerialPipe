@@ -7,10 +7,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 
-public class UdpConnection implements Connection
+public class UdpConnection extends BaseConnection
 {
-    public static final int MAX_RECEIVE_LEN = 4096;
-
     private int mInboundPort = 0;
     private int mOutboundPort = 0;
     private InetAddress mInboundAddress = null;
@@ -18,12 +16,7 @@ public class UdpConnection implements Connection
     private boolean mIsServerMode = false;
     private boolean mAlwaysUpdateOutboundSocketAddress = false;
 
-    private boolean mIsOpened = false;
     private DatagramSocket mSocket = null;
-    byte[] mReceiveBuf = new byte[MAX_RECEIVE_LEN];
-    private DatagramPacket mReceivePacket = new DatagramPacket(mReceiveBuf, mReceiveBuf.length);
-
-    Exception mLastException = null;
 
     @Override
     public boolean open()
@@ -63,8 +56,7 @@ public class UdpConnection implements Connection
     @Override
     public void close()
     {
-        if(mSocket != null)
-            mSocket.close();
+        if (mSocket != null) mSocket.close();
         mSocket = null;
         mIsOpened = false;
     }
@@ -72,9 +64,12 @@ public class UdpConnection implements Connection
     @Override
     public int read(byte[] buf, int maxLength) throws IOException
     {
+        if (mSocket == null) throw new IOException("UDP connection not open");
+
+        DatagramPacket receivePacket = new DatagramPacket(buf, Math.min(buf.length, maxLength));
         try
         {
-            mSocket.receive(mReceivePacket);
+            mSocket.receive(receivePacket);
         } catch (IOException e)
         {
             mLastException = e;
@@ -83,18 +78,19 @@ public class UdpConnection implements Connection
         }
         if (mIsServerMode && (mAlwaysUpdateOutboundSocketAddress || mOutboundAddress == null))
         {
-            mOutboundAddress = mReceivePacket.getAddress();
-            mOutboundPort = mReceivePacket.getPort();
+            mOutboundAddress = receivePacket.getAddress();
+            mOutboundPort = receivePacket.getPort();
         }
-        int length = Math.min(maxLength, mReceivePacket.getLength());
-        System.arraycopy(mReceiveBuf, 0, buf, 0, length);
-        return length;
+        return receivePacket.getLength();
     }
 
     @Override
     public int write(byte[] data, int length) throws IOException
     {
-        DatagramPacket sendPacket = new DatagramPacket(data, length, mOutboundAddress, mOutboundPort);
+        if (mSocket == null) throw new IOException("UDP connection not open");
+
+        int writeLength = Math.min(data.length, length);
+        DatagramPacket sendPacket = new DatagramPacket(data, writeLength, mOutboundAddress, mOutboundPort);
         try
         {
             mSocket.send(sendPacket);
@@ -104,14 +100,8 @@ public class UdpConnection implements Connection
             close();
             throw e;
         }
-        return length;
+        return writeLength;
     }
-
-    @Override
-    public Exception getLastException() {return mLastException;}
-
-    @Override
-    public boolean isOpened() {return mIsOpened;}
 
     public int getInboundPort() {return mInboundPort;}
 

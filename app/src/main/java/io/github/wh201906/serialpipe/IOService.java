@@ -23,7 +23,6 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.net.DatagramPacket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -32,22 +31,18 @@ import java.util.List;
 public class IOService extends Service
 {
     private static final String TAG = "IOService";
-
-    private static final int WRITE_WAIT_MILLIS = 2000;
-    private static final int READ_WAIT_MILLIS = 2000;
+    private static final int BUFFER_SIZE = 4096;
 
     private final IBinder binder = new LocalBinder();
     private Notification notification;
 
-    private byte[] udpReceiveBuf = new byte[UdpConnection.MAX_RECEIVE_LEN];
+    private byte[] udpReceiveBuf = new byte[BUFFER_SIZE];
     private Connection udpConnection = new UdpConnection();
 
-    private int baudrate = 115200;
+    private byte[] serialReceiveBuf = new byte[BUFFER_SIZE];
     private UsbSerialDriver serialUsbDriver = null;
-    private UsbSerialPort serialUsbPort = null;
-    byte[] serialReceiveBuf = new byte[4096];
+    private Connection usbSerialConnection = new UsbSerialConnection();
 
-    private boolean isSerialConnected = false;
     private boolean ignoreSocketError = true;
     private boolean ignoreSerialError = true;
     private boolean isTrafficLoggingEnabled = false;
@@ -75,8 +70,8 @@ public class IOService extends Service
     public boolean startUdpSocket()
     {
         ignoreSocketError = false;
-        ((UdpConnection)udpConnection).setIsServerMode(true);
-        ((UdpConnection)udpConnection).setAlwaysUpdateOutboundSocketAddress(true);
+        ((UdpConnection) udpConnection).setIsServerMode(true);
+        ((UdpConnection) udpConnection).setAlwaysUpdateOutboundSocketAddress(true);
         if (!udpConnection.open())
         {
             udpConnection.getLastException().printStackTrace();
@@ -108,12 +103,15 @@ public class IOService extends Service
                     });
                     break;
                 }
-                byte[] receivedData = Arrays.copyOf(udpReceiveBuf, receiveLen);
-                if (isTrafficLoggingEnabled) logTraffic("UDP", receivedData);
+                if (receiveLen == 0) continue;
+
+                if (isTrafficLoggingEnabled)
+                    logTraffic("UDP", Arrays.copyOf(udpReceiveBuf, receiveLen));
 
                 try
                 {
-                    if (isSerialConnected) serialUsbPort.write(receivedData, WRITE_WAIT_MILLIS);
+                    if (usbSerialConnection.isOpened())
+                        usbSerialConnection.write(udpReceiveBuf, receiveLen);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -144,15 +142,15 @@ public class IOService extends Service
 
     public void setTrafficLogging(boolean enabled) {isTrafficLoggingEnabled = enabled;}
 
-    public void setInboundPort(int inboundPort) {((UdpConnection)udpConnection).setInboundPort(inboundPort);}
+    public void setInboundPort(int inboundPort) {((UdpConnection) udpConnection).setInboundPort(inboundPort);}
 
     public void setSerialUsbDriver(UsbSerialDriver driver) {serialUsbDriver = driver;}
 
-    public void setSerialBaudrate(int baudrate) {this.baudrate = baudrate;}
+    public void setSerialBaudrate(int baudrate) {((UsbSerialConnection) usbSerialConnection).setBaudRate(baudrate);}
 
     public boolean getIsSocketConnected() {return udpConnection.isOpened();}
 
-    public boolean getIsSerialConnected() {return isSerialConnected;}
+    public boolean getIsSerialConnected() {return usbSerialConnection.isOpened();}
 
     public boolean connectToSerial()
     {
@@ -160,25 +158,23 @@ public class IOService extends Service
         UsbDeviceConnection connection = manager.openDevice(serialUsbDriver.getDevice());
         if (connection == null) return false;
         ignoreSerialError = false;
-        serialUsbPort = serialUsbDriver.getPorts().get(0);
-        try
+        UsbSerialPort usbSerialPort = serialUsbDriver.getPorts().get(0);
+        ((UsbSerialConnection) usbSerialConnection).setUsbConnection(connection);
+        ((UsbSerialConnection) usbSerialConnection).setUsbPort(usbSerialPort);
+        if (!usbSerialConnection.open())
         {
-            serialUsbPort.open(connection);
-            serialUsbPort.setParameters(baudrate, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-        } catch (IOException e)
-        {
-            e.printStackTrace();
+            usbSerialConnection.getLastException().printStackTrace();
             return false;
         }
         new Thread(() ->
         {
 //            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            while (isSerialConnected)
+            while (usbSerialConnection.isOpened())
             {
                 int receiveLen = 0;
                 try
                 {
-                    receiveLen = serialUsbPort.read(serialReceiveBuf, READ_WAIT_MILLIS);
+                    receiveLen = usbSerialConnection.read(serialReceiveBuf);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -204,7 +200,8 @@ public class IOService extends Service
                 {
                     try
                     {
-                        udpConnection.write(serialReceiveBuf, receiveLen);
+                        if (udpConnection.isOpened())
+                            udpConnection.write(serialReceiveBuf, receiveLen);
                     } catch (IOException e)
                     {
                         e.printStackTrace();
@@ -223,9 +220,8 @@ public class IOService extends Service
                     }
                 }
             }
-
         }).start();
-        isSerialConnected = true;
+
         return true;
     }
 
@@ -249,20 +245,8 @@ public class IOService extends Service
 
     public void disconnectFromSerial(boolean userTriggered)
     {
-        if (serialUsbPort != null)
-        {
-            if (userTriggered)
-                ignoreSerialError = true;
-            try
-            {
-                serialUsbPort.close();
-            } catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-            serialUsbPort = null;
-        }
-        isSerialConnected = false;
+        if (userTriggered) ignoreSerialError = true;
+        usbSerialConnection.close();
     }
 
     public class LocalBinder extends Binder
