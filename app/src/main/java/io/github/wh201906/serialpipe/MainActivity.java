@@ -128,9 +128,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
                 int inboundPort = Integer.parseInt(inboundPortEdit.getText().toString());
                 ioService.setInboundPort(inboundPort);
                 activityPreferences.edit().putInt(KEY_NET_PORT_INBOUND, inboundPort).apply();
-                ioService.startUdpSocket();
-                syncIoServiceState();
-
+                openUdpServer();
             }
             else
             {
@@ -209,6 +207,19 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
 
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
         registerReceiver(usbPermissionReceiver, filter);
+    }
+
+    private void openUdpServer()
+    {
+        if (ioService.startUdpSocket())
+        {
+            Toast.makeText(MainActivity.this, getString(R.string.toast_udp) + getString(R.string.toast_udp_bound), Toast.LENGTH_SHORT).show();
+            syncIoServiceState();
+        }
+        else
+        {
+            Toast.makeText(MainActivity.this, getString(R.string.toast_udp) + getString(R.string.toast_udp_failed_to_bind), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void connectSerial(UsbSerialDriver driver)

@@ -107,7 +107,9 @@ public class IOService extends Service
                 } catch (IOException e)
                 {
                     e.printStackTrace();
-                    stopUdpSocket(); // this should be called before calling onUdpError() of every listener
+                    // stopUdpSocket() should be called before calling onUdpError() of every listener
+                    // Because the listener calls syncIoServiceState() to get a proper UI state
+                    stopUdpSocket();
                     if(!ignoreSocketError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
@@ -128,7 +130,9 @@ public class IOService extends Service
                 } catch (IOException e)
                 {
                     e.printStackTrace();
-                    disconnectFromSerial(); // this should be called before calling onSerialError() of every listener
+                    // disconnectFromSerial() should be called before calling onSerialError() of every listener
+                    // Because the listener calls syncIoServiceState() to get a proper UI state
+                    disconnectFromSerial(false);
                     if(!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
@@ -198,7 +202,9 @@ public class IOService extends Service
                 } catch (IOException e)
                 {
                     e.printStackTrace();
-                    disconnectFromSerial(); // this should be called before calling onSerialError() of every listener
+                    // disconnectFromSerial() should be called before calling onSerialError() of every listener
+                    // Because the listener calls syncIoServiceState() to get a proper UI state
+                    disconnectFromSerial(false);
                     if(!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
@@ -222,7 +228,9 @@ public class IOService extends Service
                     } catch (IOException e)
                     {
                         e.printStackTrace();
-                        stopUdpSocket(); // this should be called before calling onUdpError() of every listener
+                        // stopUdpSocket() should be called before calling onUdpError() of every listener
+                        // Because the listener calls syncIoServiceState() to get a proper UI state
+                        stopUdpSocket();
                         if(!ignoreSocketError) uiHandler.post(() ->
                         {
                             for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
@@ -254,9 +262,16 @@ public class IOService extends Service
 
     public void disconnectFromSerial()
     {
+        // default: user triggered
+        disconnectFromSerial(true);
+    }
+
+    public void disconnectFromSerial(boolean userTriggered)
+    {
         if (serialUsbPort != null)
         {
-            ignoreSerialError = true;
+            if(userTriggered)
+                ignoreSerialError = true;
             try
             {
                 serialUsbPort.close();

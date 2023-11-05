@@ -21,5 +21,8 @@
     <string name="toast_udp_error">"UDP Error: "</string>
     <string name="toast_serial_error">"Serial Error: "</string>
     <string name="toast_serial">"Serial: "</string>
+    <string name="toast_udp">"UDP: "</string>
+    <string name="toast_udp_bound">Bound</string>
+    <string name="toast_udp_failed_to_bind">Failed to bind to port</string>
     <string name="notification_exit">Exit</string>
 </resources>

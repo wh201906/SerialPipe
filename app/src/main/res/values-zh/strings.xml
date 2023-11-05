@@ -21,5 +21,8 @@
     <string name="toast_udp_error">"UDP错误："</string>
     <string name="toast_serial_error">"串口错误："</string>
     <string name="toast_serial">"串口："</string>
+    <string name="toast_udp">"UDP: "</string>
+    <string name="toast_udp_bound">已绑定至端口</string>
+    <string name="toast_udp_failed_to_bind">无法绑定到端口</string>
     <string name="notification_exit">退出</string>
 </resources>
