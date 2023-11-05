@@ -24,9 +24,6 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -42,19 +39,14 @@ public class IOService extends Service
     private final IBinder binder = new LocalBinder();
     private Notification notification;
 
-    private int inboundPort = 18888;
-    private int outboundPort = 0;
-    private InetAddress outboundAddress = null;
-    private DatagramSocket udpSocket = null;
-    byte[] udpReceiveBuf = new byte[4096];
-    DatagramPacket udpReceivePacket = new DatagramPacket(udpReceiveBuf, udpReceiveBuf.length);
+    private byte[] udpReceiveBuf = new byte[UdpConnection.MAX_RECEIVE_LEN];
+    private Connection udpConnection = new UdpConnection();
 
     private int baudrate = 115200;
     private UsbSerialDriver serialUsbDriver = null;
     private UsbSerialPort serialUsbPort = null;
     byte[] serialReceiveBuf = new byte[4096];
 
-    private boolean isSocketConnected = false;
     private boolean isSerialConnected = false;
     private boolean ignoreSocketError = true;
     private boolean ignoreSerialError = true;
@@ -78,39 +70,35 @@ public class IOService extends Service
     }
 
     @Override
-    public IBinder onBind(Intent intent)
-    {
-        return binder;
-    }
+    public IBinder onBind(Intent intent) {return binder;}
 
     public boolean startUdpSocket()
     {
         ignoreSocketError = false;
-        try
+        ((UdpConnection)udpConnection).setIsServerMode(true);
+        ((UdpConnection)udpConnection).setAlwaysUpdateOutboundSocketAddress(true);
+        if (!udpConnection.open())
         {
-            udpSocket = new DatagramSocket(inboundPort);
-        } catch (SocketException e)
-        {
-            e.printStackTrace();
+            udpConnection.getLastException().printStackTrace();
             return false;
         }
-        isSocketConnected = true;
 
         new Thread(() ->
         {
 //            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            while (isSocketConnected)
+            while (udpConnection.isOpened())
             {
+                int receiveLen = 0;
                 try
                 {
-                    udpSocket.receive(udpReceivePacket);
+                    receiveLen = udpConnection.read(udpReceiveBuf);
                 } catch (IOException e)
                 {
                     e.printStackTrace();
                     // stopUdpSocket() should be called before calling onUdpError() of every listener
                     // Because the listener calls syncIoServiceState() to get a proper UI state
                     stopUdpSocket();
-                    if(!ignoreSocketError) uiHandler.post(() ->
+                    if (!ignoreSocketError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -118,10 +106,9 @@ public class IOService extends Service
                             if (listener != null) listener.onUdpError(e);
                         }
                     });
+                    break;
                 }
-                outboundAddress = udpReceivePacket.getAddress();
-                outboundPort = udpReceivePacket.getPort();
-                byte[] receivedData = Arrays.copyOf(udpReceiveBuf, udpReceivePacket.getLength());
+                byte[] receivedData = Arrays.copyOf(udpReceiveBuf, receiveLen);
                 if (isTrafficLoggingEnabled) logTraffic("UDP", receivedData);
 
                 try
@@ -133,7 +120,7 @@ public class IOService extends Service
                     // disconnectFromSerial() should be called before calling onSerialError() of every listener
                     // Because the listener calls syncIoServiceState() to get a proper UI state
                     disconnectFromSerial(false);
-                    if(!ignoreSerialError) uiHandler.post(() ->
+                    if (!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -141,6 +128,7 @@ public class IOService extends Service
                             if (listener != null) listener.onSerialError(e);
                         }
                     });
+                    break;
                 }
             }
         }).start();
@@ -150,27 +138,19 @@ public class IOService extends Service
 
     public void stopUdpSocket()
     {
-        if (udpSocket != null)
-        {
-            ignoreSocketError = true;
-            udpSocket.close();
-            isSocketConnected = false;
-        }
+        ignoreSocketError = true;
+        udpConnection.close();
     }
 
-    public void setInboundPort(int port) {inboundPort = port;}
-
-    public void setOutboundPort(int port) {outboundPort = port;}
-
-    public void setOutboundAddress(InetAddress address) {outboundAddress = address;}
-
     public void setTrafficLogging(boolean enabled) {isTrafficLoggingEnabled = enabled;}
+
+    public void setInboundPort(int inboundPort) {((UdpConnection)udpConnection).setInboundPort(inboundPort);}
 
     public void setSerialUsbDriver(UsbSerialDriver driver) {serialUsbDriver = driver;}
 
     public void setSerialBaudrate(int baudrate) {this.baudrate = baudrate;}
 
-    public boolean getIsSocketConnected() {return isSocketConnected;}
+    public boolean getIsSocketConnected() {return udpConnection.isOpened();}
 
     public boolean getIsSerialConnected() {return isSerialConnected;}
 
@@ -205,7 +185,7 @@ public class IOService extends Service
                     // disconnectFromSerial() should be called before calling onSerialError() of every listener
                     // Because the listener calls syncIoServiceState() to get a proper UI state
                     disconnectFromSerial(false);
-                    if(!ignoreSerialError) uiHandler.post(() ->
+                    if (!ignoreSerialError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
@@ -213,25 +193,25 @@ public class IOService extends Service
                             if (listener != null) listener.onSerialError(e);
                         }
                     });
+                    break;
                 }
                 if (receiveLen == 0) continue;
 
                 if (isTrafficLoggingEnabled)
                     logTraffic("USB", Arrays.copyOf(serialReceiveBuf, receiveLen));
 
-                if (isSocketConnected)
+                if (udpConnection.isOpened())
                 {
-                    DatagramPacket sendPacket = new DatagramPacket(serialReceiveBuf, receiveLen, outboundAddress, outboundPort);
                     try
                     {
-                        udpSocket.send(sendPacket);
+                        udpConnection.write(serialReceiveBuf, receiveLen);
                     } catch (IOException e)
                     {
                         e.printStackTrace();
                         // stopUdpSocket() should be called before calling onUdpError() of every listener
                         // Because the listener calls syncIoServiceState() to get a proper UI state
                         stopUdpSocket();
-                        if(!ignoreSocketError) uiHandler.post(() ->
+                        if (!ignoreSocketError) uiHandler.post(() ->
                         {
                             for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                             {
@@ -239,6 +219,7 @@ public class IOService extends Service
                                 if (listener != null) listener.onUdpError(e);
                             }
                         });
+                        break;
                     }
                 }
             }
@@ -270,7 +251,7 @@ public class IOService extends Service
     {
         if (serialUsbPort != null)
         {
-            if(userTriggered)
+            if (userTriggered)
                 ignoreSerialError = true;
             try
             {
