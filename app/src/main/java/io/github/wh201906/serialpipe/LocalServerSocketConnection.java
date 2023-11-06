@@ -8,9 +8,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+// Useless
+// https://developer.android.com/about/versions/pie/android-9.0-changes-28#per-app-selinux
+// Unix socket is disabled for apps with targetApi >= 28
 public class LocalServerSocketConnection extends BaseConnection
 {
-    private String mSocketName = "@SPSock";
+    private String mSocketName = "SPSock";
 
     private LocalServerSocket mServerSocket = null;
     private LocalSocket mSocket = null;
