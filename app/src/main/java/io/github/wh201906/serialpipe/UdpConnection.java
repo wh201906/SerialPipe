@@ -89,8 +89,8 @@ public class UdpConnection extends BaseConnection
     {
         if (mSocket == null) throw new IOException("UDP connection not open");
 
-        int writeLength = Math.min(data.length, length);
-        DatagramPacket sendPacket = new DatagramPacket(data, writeLength, mOutboundAddress, mOutboundPort);
+        int writeLen = Math.min(data.length, length);
+        DatagramPacket sendPacket = new DatagramPacket(data, writeLen, mOutboundAddress, mOutboundPort);
         try
         {
             mSocket.send(sendPacket);
@@ -100,7 +100,7 @@ public class UdpConnection extends BaseConnection
             close();
             throw e;
         }
-        return writeLength;
+        return writeLen;
     }
 
     public int getInboundPort() {return mInboundPort;}

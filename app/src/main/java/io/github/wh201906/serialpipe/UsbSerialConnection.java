@@ -47,9 +47,11 @@ public class UsbSerialConnection extends BaseConnection
         {
             mLastException = e;
             e.printStackTrace();
+        } finally
+        {
+            mUsbPort = null;
+            mIsOpened = false;
         }
-        mUsbPort = null;
-        mIsOpened = false;
     }
 
     @Override
@@ -61,18 +63,18 @@ public class UsbSerialConnection extends BaseConnection
             throw new IOException("USB Serial connection not open");
 
         boolean isDirectWrite = (buf.length == maxLength);
-        int receiveLen = 0;
+        int readLen = 0;
         byte[] receiveBuf = null;
         try
         {
             if (isDirectWrite)
             {
-                receiveLen = mUsbPort.read(buf, READ_WAIT_MILLIS);
+                readLen = mUsbPort.read(buf, READ_WAIT_MILLIS);
             }
             else
             {
                 receiveBuf = new byte[maxLength];
-                receiveLen = mUsbPort.read(receiveBuf, READ_WAIT_MILLIS);
+                readLen = mUsbPort.read(receiveBuf, READ_WAIT_MILLIS);
             }
 
         } catch (IOException e)
@@ -81,9 +83,8 @@ public class UsbSerialConnection extends BaseConnection
             close();
             throw e;
         }
-        if (!isDirectWrite)
-            System.arraycopy(receiveBuf, 0, buf, 0, receiveLen);
-        return receiveLen;
+        if (!isDirectWrite) System.arraycopy(receiveBuf, 0, buf, 0, readLen);
+        return readLen;
     }
 
     @Override
@@ -99,8 +100,7 @@ public class UsbSerialConnection extends BaseConnection
         byte[] writeData;
         try
         {
-            if (isDirectWrite)
-                mUsbPort.write(data, WRITE_WAIT_MILLIS);
+            if (isDirectWrite) mUsbPort.write(data, WRITE_WAIT_MILLIS);
             else
             {
                 writeData = Arrays.copyOf(data, writeLen);
