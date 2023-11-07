@@ -1,6 +1,4 @@
 A USB Serial to UDP bridge app  
 
 This app works as a bridge to transfer the communication between the UDP and USB serial port. It has the same function as the following command in Linux:
-```
-socat -dd /dev/ttyACM0,raw,echo=0,b<baudrate> udp4-listen:<port>,reuseaddr,fork
-```
+<pre><code>socat -dd /dev/ttyACM0,raw,echo=0,b&lt;baudrate&gt; udp4-listen:&lt;port&gt;,reuseaddr,fork</code></pre>

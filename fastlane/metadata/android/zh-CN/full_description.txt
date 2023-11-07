@@ -1,6 +1,4 @@
 一款USB串口转UDP应用
 
-此应用用于将USB串口设备转接至UDP连接上以便于远程调试，相当于以下Linux命令：
-```
-socat -dd /dev/ttyACM0,raw,echo=0,b<baudrate> udp4-listen:<port>,reuseaddr,fork
-```
+此应用可以将USB串口设备转发至UDP连接上，以便于远程调试，相当于以下Linux命令：
+<pre><code>socat -dd /dev/ttyACM0,raw,echo=0,b&lt;baudrate&gt; udp4-listen:&lt;port&gt;,reuseaddr,fork</code></pre>
