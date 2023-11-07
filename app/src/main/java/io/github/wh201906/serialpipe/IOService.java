@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Process;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -21,12 +22,13 @@ import androidx.core.app.NotificationCompat;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 
-import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 public class IOService extends Service
 {
@@ -36,9 +38,11 @@ public class IOService extends Service
     private final IBinder binder = new LocalBinder();
     private Notification notification;
 
+    private BlockingQueue<byte[]> udpReceiveQueue = new ArrayBlockingQueue<>(64, true);
     private byte[] udpReceiveBuf = new byte[BUFFER_SIZE];
     private Connection udpConnection = new UdpConnection();
 
+    private BlockingQueue<byte[]> serialReceiveQueue = new ArrayBlockingQueue<>(64, true);
     private byte[] serialReceiveBuf = new byte[BUFFER_SIZE];
     private UsbSerialDriver serialUsbDriver = null;
     private Connection usbSerialConnection = new UsbSerialConnection();
@@ -80,14 +84,16 @@ public class IOService extends Service
 
         new Thread(() ->
         {
-//            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
             while (udpConnection.isOpened())
             {
-                int receiveLen = 0;
+                int receiveLen;
                 try
                 {
                     receiveLen = udpConnection.read(udpReceiveBuf);
-                } catch (IOException e)
+                    if (receiveLen == 0) continue;
+                    udpReceiveQueue.put(Arrays.copyOf(udpReceiveBuf, receiveLen));
+                } catch (Exception e)
                 {
                     e.printStackTrace();
                     // stopUdpSocket() should be called before calling onUdpError() of every listener
@@ -103,27 +109,29 @@ public class IOService extends Service
                     });
                     break;
                 }
-                if (receiveLen == 0) continue;
+            }
+        }).start();
 
-                if (isTrafficLoggingEnabled)
-                    logTraffic("UDP", Arrays.copyOf(udpReceiveBuf, receiveLen));
-
+        new Thread(() ->
+        {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
+            while (udpConnection.isOpened())
+            {
                 try
                 {
-                    if (usbSerialConnection.isOpened())
-                        usbSerialConnection.write(udpReceiveBuf, receiveLen);
-                } catch (IOException e)
+                    udpConnection.write(serialReceiveQueue.take());
+                } catch (Exception e)
                 {
                     e.printStackTrace();
-                    // disconnectFromSerial() should be called before calling onSerialError() of every listener
+                    // stopUdpSocket() should be called before calling onUdpError() of every listener
                     // Because the listener calls syncIoServiceState() to get a proper UI state
-                    disconnectFromSerial(false);
-                    if (!ignoreSerialError) uiHandler.post(() ->
+                    stopUdpSocket();
+                    if (!ignoreSocketError) uiHandler.post(() ->
                     {
                         for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
                             OnErrorListener listener = listenerRef.get();
-                            if (listener != null) listener.onSerialError(e);
+                            if (listener != null) listener.onUdpError(e);
                         }
                     });
                     break;
@@ -168,14 +176,16 @@ public class IOService extends Service
         }
         new Thread(() ->
         {
-//            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
             while (usbSerialConnection.isOpened())
             {
-                int receiveLen = 0;
+                int receiveLen;
                 try
                 {
                     receiveLen = usbSerialConnection.read(serialReceiveBuf);
-                } catch (IOException e)
+                    if (receiveLen == 0) continue;
+                    serialReceiveQueue.put(Arrays.copyOf(serialReceiveBuf, receiveLen));
+                } catch (Exception e)
                 {
                     e.printStackTrace();
                     // disconnectFromSerial() should be called before calling onSerialError() of every listener
@@ -191,33 +201,32 @@ public class IOService extends Service
                     });
                     break;
                 }
-                if (receiveLen == 0) continue;
+            }
+        }).start();
 
-                if (isTrafficLoggingEnabled)
-                    logTraffic("USB", Arrays.copyOf(serialReceiveBuf, receiveLen));
-
-                if (udpConnection.isOpened())
+        new Thread(() ->
+        {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY);
+            while (usbSerialConnection.isOpened())
+            {
+                try
                 {
-                    try
+                    usbSerialConnection.write(udpReceiveQueue.take());
+                } catch (Exception e)
+                {
+                    e.printStackTrace();
+                    // disconnectFromSerial() should be called before calling onSerialError() of every listener
+                    // Because the listener calls syncIoServiceState() to get a proper UI state
+                    disconnectFromSerial(false);
+                    if (!ignoreSerialError) uiHandler.post(() ->
                     {
-                        if (udpConnection.isOpened())
-                            udpConnection.write(serialReceiveBuf, receiveLen);
-                    } catch (IOException e)
-                    {
-                        e.printStackTrace();
-                        // stopUdpSocket() should be called before calling onUdpError() of every listener
-                        // Because the listener calls syncIoServiceState() to get a proper UI state
-                        stopUdpSocket();
-                        if (!ignoreSocketError) uiHandler.post(() ->
+                        for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
                         {
-                            for (WeakReference<OnErrorListener> listenerRef : onErrorListenerList)
-                            {
-                                OnErrorListener listener = listenerRef.get();
-                                if (listener != null) listener.onUdpError(e);
-                            }
-                        });
-                        break;
-                    }
+                            OnErrorListener listener = listenerRef.get();
+                            if (listener != null) listener.onSerialError(e);
+                        }
+                    });
+                    break;
                 }
             }
         }).start();
