@@ -22,13 +22,13 @@ import androidx.core.app.NotificationCompat;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 
+import org.jctools.queues.SpscArrayQueue;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 
 public class IOService extends Service
 {
@@ -38,11 +38,11 @@ public class IOService extends Service
     private final IBinder binder = new LocalBinder();
     private Notification notification;
 
-    private BlockingQueue<byte[]> udpReceiveQueue = new ArrayBlockingQueue<>(64, true);
+    private SpscArrayQueue<byte[]> udpReceiveQueue = new SpscArrayQueue<>(512);
     private byte[] udpReceiveBuf = new byte[BUFFER_SIZE];
     private Connection udpConnection = new UdpConnection();
 
-    private BlockingQueue<byte[]> serialReceiveQueue = new ArrayBlockingQueue<>(64, true);
+    private SpscArrayQueue<byte[]> serialReceiveQueue = new SpscArrayQueue<>(512);
     private byte[] serialReceiveBuf = new byte[BUFFER_SIZE];
     private UsbSerialDriver serialUsbDriver = null;
     private Connection usbSerialConnection = new UsbSerialConnection();
@@ -92,7 +92,7 @@ public class IOService extends Service
                 {
                     receiveLen = udpConnection.read(udpReceiveBuf);
                     if (receiveLen == 0) continue;
-                    udpReceiveQueue.put(Arrays.copyOf(udpReceiveBuf, receiveLen));
+                    while (!udpReceiveQueue.offer(Arrays.copyOf(udpReceiveBuf, receiveLen))) ;
                 } catch (Exception e)
                 {
                     e.printStackTrace();
@@ -119,7 +119,9 @@ public class IOService extends Service
             {
                 try
                 {
-                    udpConnection.write(serialReceiveQueue.take());
+                    byte[] data = null;
+                    while (data == null) data = serialReceiveQueue.poll();
+                    udpConnection.write(data);
                 } catch (Exception e)
                 {
                     e.printStackTrace();
@@ -184,7 +186,7 @@ public class IOService extends Service
                 {
                     receiveLen = usbSerialConnection.read(serialReceiveBuf);
                     if (receiveLen == 0) continue;
-                    serialReceiveQueue.put(Arrays.copyOf(serialReceiveBuf, receiveLen));
+                    while (!serialReceiveQueue.offer(Arrays.copyOf(serialReceiveBuf, receiveLen))) ;
                 } catch (Exception e)
                 {
                     e.printStackTrace();
@@ -211,7 +213,9 @@ public class IOService extends Service
             {
                 try
                 {
-                    usbSerialConnection.write(udpReceiveQueue.take());
+                    byte[] data = null;
+                    while (data == null) data = udpReceiveQueue.poll();
+                    usbSerialConnection.write(data);
                 } catch (Exception e)
                 {
                     e.printStackTrace();
