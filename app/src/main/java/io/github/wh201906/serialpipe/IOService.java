@@ -34,15 +34,16 @@ public class IOService extends Service
 {
     private static final String TAG = "IOService";
     private static final int BUFFER_SIZE = 4096;
+    private static final int MESSAGE_NUM = 512;
 
     private final IBinder binder = new LocalBinder();
     private Notification notification;
 
-    private SpscArrayQueue<byte[]> udpReceiveQueue = new SpscArrayQueue<>(512);
+    private SpscArrayQueue<byte[]> udpReceiveQueue = new SpscArrayQueue<>(MESSAGE_NUM);
     private byte[] udpReceiveBuf = new byte[BUFFER_SIZE];
     private Connection udpConnection = new UdpConnection();
 
-    private SpscArrayQueue<byte[]> serialReceiveQueue = new SpscArrayQueue<>(512);
+    private SpscArrayQueue<byte[]> serialReceiveQueue = new SpscArrayQueue<>(MESSAGE_NUM);
     private byte[] serialReceiveBuf = new byte[BUFFER_SIZE];
     private UsbSerialDriver serialUsbDriver = null;
     private Connection usbSerialConnection = new UsbSerialConnection();
@@ -51,8 +52,8 @@ public class IOService extends Service
     private boolean ignoreSerialError = true;
     private boolean isTrafficLoggingEnabled = false;
 
-    private List<WeakReference<OnErrorListener>> onErrorListenerList = new ArrayList<>();
-    private Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final List<WeakReference<OnErrorListener>> onErrorListenerList = new ArrayList<>();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public void onCreate()
@@ -92,7 +93,8 @@ public class IOService extends Service
                 {
                     receiveLen = udpConnection.read(udpReceiveBuf);
                     if (receiveLen == 0) continue;
-                    while (!udpReceiveQueue.offer(Arrays.copyOf(udpReceiveBuf, receiveLen))) ;
+                    byte[] buf = Arrays.copyOf(udpReceiveBuf, receiveLen);
+                    while (!udpReceiveQueue.offer(buf)) ;
                 } catch (Exception e)
                 {
                     e.printStackTrace();
@@ -186,7 +188,8 @@ public class IOService extends Service
                 {
                     receiveLen = usbSerialConnection.read(serialReceiveBuf);
                     if (receiveLen == 0) continue;
-                    while (!serialReceiveQueue.offer(Arrays.copyOf(serialReceiveBuf, receiveLen))) ;
+                    byte[] buf = Arrays.copyOf(serialReceiveBuf, receiveLen);
+                    while (!serialReceiveQueue.offer(buf)) ;
                 } catch (Exception e)
                 {
                     e.printStackTrace();
