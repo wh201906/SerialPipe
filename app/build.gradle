@@ -10,8 +10,8 @@ android {
         applicationId "io.github.wh201906.serialpipe"
         minSdk 17
         targetSdk 32
-        versionCode 2
-        versionName 'v0.0.2'
+        versionCode 3
+        versionName 'v0.0.3'
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

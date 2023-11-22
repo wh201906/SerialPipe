@@ -1,1 +1,2 @@
 Higher transmission speed
+(Deprecated. Please use v0.0.3 or higher version)
