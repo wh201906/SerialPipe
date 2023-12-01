@@ -322,4 +322,14 @@ public class IOService extends Service
             if (existingElement == null || existingElement.equals(listener)) iterator.remove();
         }
     }
+
+    @Override
+    public void onDestroy()
+    {
+        // Release resources
+        stopUdpSocket();
+        // No need to show errors when the service is destroyed
+        disconnectFromSerial(true);
+        super.onDestroy();
+    }
 }
