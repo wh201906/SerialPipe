@@ -57,25 +57,13 @@ public class UsbSerialConnection extends BaseConnection
     @Override
     public int read(byte[] buf, int maxLength) throws IOException
     {
-        // TODO:
-        // Use read(dest, length, timeout) if #544 of mik3y/usb-serial-for-android is merged
         if (mUsbPort == null || !mUsbPort.isOpen())
             throw new IOException("USB Serial connection not open");
 
-        boolean isDirectWrite = (buf.length == maxLength);
         int readLen = 0;
-        byte[] receiveBuf = null;
         try
         {
-            if (isDirectWrite)
-            {
-                readLen = mUsbPort.read(buf, READ_WAIT_MILLIS);
-            }
-            else
-            {
-                receiveBuf = new byte[maxLength];
-                readLen = mUsbPort.read(receiveBuf, READ_WAIT_MILLIS);
-            }
+            readLen = mUsbPort.read(buf, maxLength, READ_WAIT_MILLIS);
 
         } catch (IOException e)
         {
@@ -83,29 +71,19 @@ public class UsbSerialConnection extends BaseConnection
             close();
             throw e;
         }
-        if (!isDirectWrite) System.arraycopy(receiveBuf, 0, buf, 0, readLen);
         return readLen;
     }
 
     @Override
     public int write(byte[] data, int length) throws IOException
     {
-        // TODO:
-        // Use write(src, length, timeout) if #544 of mik3y/usb-serial-for-android is merged
         if (mUsbPort == null || !mUsbPort.isOpen())
             throw new IOException("USB Serial connection not open");
 
-        boolean isDirectWrite = (data.length == length);
         int writeLen = Math.min(data.length, length);
-        byte[] writeData;
         try
         {
-            if (isDirectWrite) mUsbPort.write(data, WRITE_WAIT_MILLIS);
-            else
-            {
-                writeData = Arrays.copyOf(data, writeLen);
-                mUsbPort.write(writeData, WRITE_WAIT_MILLIS);
-            }
+            mUsbPort.write(data, writeLen, WRITE_WAIT_MILLIS);
 
         } catch (IOException e)
         {
