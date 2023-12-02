@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
 
     SharedPreferences activityPreferences = null;
 
+    private long lastBackPressTime = 0;
 
     private final BroadcastReceiver usbPermissionReceiver = new BroadcastReceiver()
     {
@@ -190,11 +191,7 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
             startActivity(intent);
         });
 
-        exitButton.setOnClickListener(v ->
-        {
-            stopService(new Intent(this, IOService.class));
-            finish();
-        });
+        exitButton.setOnClickListener(v -> exit());
 
         Intent serviceIntent = new Intent(this, IOService.class);
 
@@ -306,9 +303,24 @@ public class MainActivity extends AppCompatActivity implements IOService.OnError
         Log.w(TAG, "ProcessIntent: " + intent + ", action: " + action);
         if (action.equals(ACTION_EXIT))
         {
-            // same as exitButton.setOnClickListener(...)
-            stopService(new Intent(this, IOService.class));
-            finish();
+            exit();
+        }
+    }
+
+    private void exit()
+    {
+        stopService(new Intent(this, IOService.class));
+        finish();
+    }
+
+    @Override
+    public void onBackPressed() {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastBackPressTime < 2000) {
+            exit();
+        } else {
+            Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show();
+            lastBackPressTime = currentTime;
         }
     }
 }
